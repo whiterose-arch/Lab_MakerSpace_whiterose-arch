@@ -1,0 +1,5 @@
+# The project is intentionally dependency-light.
+# sqlite3, dataclasses, pathlib, datetime, typing, and unittest are
+# provided by Python's standard library.
+#
+# If you add a third-party dependency, document why it is necessary here.
