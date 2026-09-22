@@ -11,6 +11,7 @@ Do not put database SQL directly into the menu functions.
 
 from datetime import date, timedelta
 from pathlib import Path
+import re
 import sys
 from typing import Any, Optional
 
@@ -58,20 +59,56 @@ def print_table(headers: list[str], rows: list[list[Any]]) -> None:
     print(sep + "\n")
 
 
-def prompt_str(prompt: str, required: bool = True, default: Optional[str] = None) -> Optional[str]:
-    """Prompt the user for a string with whitespace trimming and defaults."""
+def prompt_str(
+    prompt: str,
+    required: bool = True,
+    default: Optional[str] = None,
+    accepted_type: Optional[str] = None,
+) -> Optional[str]:
+    """Prompt the user for a string with whitespace trimming, defaults, and validation.
+
+    accepted_type options:
+    - "name" or "alpha": must contain letters and cannot contain numbers or digits.
+    - "email": must match valid email format (e.g. user@example.com).
+    - "phone" or "phone number": must contain only valid phone digits, spaces, and '+'.
+    - None: any text.
+    """
     while True:
         default_hint = f" [{default}]" if default is not None else ""
         try:
             val = input(f"{prompt}{default_hint}: ").strip()
         except EOFError:
             return default
+
         if not val and default is not None:
-            return default
-        if not val and required:
-            print("  [!] This field cannot be empty. Please enter a value.")
-            continue
-        return val if val else None
+            val = default
+
+        if not val:
+            if required:
+                print("  [!] This field cannot be empty. Please enter a value.")
+                continue
+            return None
+
+        # Type-specific validation
+        if accepted_type in ("name", "alpha"):
+            if any(c.isdigit() for c in val):
+                print("  [!] Invalid name: names cannot contain numbers or digits.")
+                continue
+            if not any(c.isalpha() for c in val) or not re.match(r"^[A-Za-z\s\-\'\.]+$", val):
+                print("  [!] Invalid name: must contain letters (allowed: letters, spaces, hyphens, apostrophes).")
+                continue
+
+        elif accepted_type == "email":
+            if not re.match(r"^[\w\.-]+@([\w-]+\.)+[\w-]{2,}$", val):
+                print("  [!] Invalid email format. Please enter a valid address (e.g. student@example.com).")
+                continue
+
+        elif accepted_type in ("phone", "phone number"):
+            if not re.match(r"^[\d\s\-\+\(\)]+$", val):
+                print("  [!] Invalid phone number: may only contain digits, spaces, hyphens, and a leading '+'.")
+                continue
+
+        return val
 
 
 def prompt_int(prompt: str, required: bool = True, default: Optional[int] = None) -> Optional[int]:
@@ -146,9 +183,9 @@ def handle_member_menu(service: MakerSpaceService):
 
         elif choice == "1":
             print("\n-- Register New Member --")
-            name = prompt_str("Member Full Name")
-            email = prompt_str("Member Email")
-            phone = prompt_str("Member Phone (optional)", required=False) or ""
+            name = prompt_str("Member Full Name", accepted_type="name")
+            email = prompt_str("Member Email", accepted_type="email")
+            phone = prompt_str("Member Phone (optional)", required=False, accepted_type="phone") or ""
             if not name or not email:
                 print("  [!] Name and email are required.")
                 continue
@@ -174,9 +211,9 @@ def handle_member_menu(service: MakerSpaceService):
                 continue
 
             print(f"  Updating Member: {existing.name} ({existing.email})")
-            name = prompt_str("New Name", required=True, default=existing.name)
-            email = prompt_str("New Email", required=True, default=existing.email)
-            phone = prompt_str("New Phone", required=False, default=existing.phone) or ""
+            name = prompt_str("New Name", required=True, default=existing.name, accepted_type="name")
+            email = prompt_str("New Email", required=True, default=existing.email, accepted_type="email")
+            phone = prompt_str("New Phone", required=False, default=existing.phone, accepted_type="phone") or ""
             if not name or not email:
                 print("  [!] Name and email cannot be empty.")
                 continue

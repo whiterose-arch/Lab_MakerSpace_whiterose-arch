@@ -9,6 +9,7 @@ The CLI should call these methods instead of writing SQL directly.
 """
 
 from datetime import date, timedelta
+import re
 from typing import Any, Optional
 
 from database import Database
@@ -35,6 +36,22 @@ class MakerSpaceService:
 
         This function creates a new member and returns the created Member object.
         """
+        name = name.strip()
+        email = email.strip().lower()
+        phone = phone.strip()
+
+        if not name:
+            raise ValueError("Member name is required and cannot be empty")
+        if any(c.isdigit() for c in name):
+            raise ValueError("Member name cannot contain numbers or digits")
+        if not any(c.isalpha() for c in name) or not re.match(r"^[A-Za-z\s\-\'\.]+$", name):
+            raise ValueError("Member name must contain valid letters and cannot consist of symbols or numbers")
+
+        if not email or not re.match(r"^[\w\.-]+@([\w-]+\.)+[\w-]{2,}$", email):
+            raise ValueError(f"Invalid email format: '{email}'. Expected format: user@example.com")
+
+        if phone and not re.match(r"^[\d\s\-\+\(\)]+$", phone):
+            raise ValueError(f"Invalid phone number: '{phone}'. Allowed characters: digits, spaces, hyphens, and a leading '+'")
 
         is_exist = self.database.fetch_one("SELECT * FROM members WHERE email = ?", (email,))
         if is_exist:
@@ -71,16 +88,37 @@ class MakerSpaceService:
 
         This function updates an existing member and returns the updated Member object.
         """
-        name = name.strip().title()
+        name = name.strip()
         email = email.strip().lower()
         phone = phone.strip()
 
         if not member_id:
             raise ValueError("Member ID is required for updating a member")
 
+        if not name:
+            raise ValueError("Member name is required and cannot be empty")
+        if any(c.isdigit() for c in name):
+            raise ValueError("Member name cannot contain numbers or digits")
+        if not any(c.isalpha() for c in name) or not re.match(r"^[A-Za-z\s\-\'\.]+$", name):
+            raise ValueError("Member name must contain valid letters and cannot consist of symbols or numbers")
+
+        if not email or not re.match(r"^[\w\.-]+@([\w-]+\.)+[\w-]{2,}$", email):
+            raise ValueError(f"Invalid email format: '{email}'. Expected format: user@example.com")
+
+        if phone and not re.match(r"^[\d\s\-\+\(\)]+$", phone):
+            raise ValueError(f"Invalid phone number: '{phone}'. Allowed characters: digits, spaces, hyphens, and a leading '+'")
+
         member = self.get_member(member_id)
         if not member:
             raise ValueError(f"Member with ID {member_id} not found")
+
+        # Check if email is already used by another member
+        existing_owner = self.database.fetch_one(
+            "SELECT id FROM members WHERE email = ? AND id != ?",
+            (email, member_id),
+        )
+        if existing_owner:
+            raise ValueError(f"Member with email {email} already exists")
 
         self.database.execute("UPDATE members SET name = ?, email = ?, phone = ? WHERE id = ?", (name, email, phone, member_id))
 

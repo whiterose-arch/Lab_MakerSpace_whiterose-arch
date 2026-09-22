@@ -56,6 +56,34 @@ class TestMakerSpaceService(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.service.register_member("Grace Duplicate", "grace@navy.mil")
 
+    def test_register_member_invalid_name(self):
+        """Verify registering a member with numbers or invalid characters raises ValueError."""
+        # Pure numeric string
+        with self.assertRaises(ValueError):
+            self.service.register_member("12345", "test1@example.com")
+        # Name containing digits
+        with self.assertRaises(ValueError):
+            self.service.register_member("John 2", "test2@example.com")
+        # Empty name
+        with self.assertRaises(ValueError):
+            self.service.register_member("   ", "test3@example.com")
+        # Only symbols
+        with self.assertRaises(ValueError):
+            self.service.register_member("!@#$%", "test4@example.com")
+
+    def test_register_member_invalid_email(self):
+        """Verify registering a member with an invalid email address raises ValueError."""
+        invalid_emails = ["notanemail", "user@", "user@domain", "@domain.com", "user@.com", "   "]
+        for email in invalid_emails:
+            with self.subTest(email=email):
+                with self.assertRaises(ValueError):
+                    self.service.register_member("Valid Name", email)
+
+    def test_register_member_invalid_phone(self):
+        """Verify registering a member with invalid phone characters raises ValueError."""
+        with self.assertRaises(ValueError):
+            self.service.register_member("Valid Name", "valid@example.com", "not-a-phone-number")
+
     def test_update_member(self):
         """Verify updating member information."""
         self.service.register_member("Ada Byron", "ada@example.com", "111")
@@ -73,6 +101,19 @@ class TestMakerSpaceService(unittest.TestCase):
         """Verify updating a non-existent member raises ValueError."""
         with self.assertRaises(ValueError):
             self.service.update_member(999, "Ghost", "ghost@example.com")
+
+    def test_update_member_invalid_data(self):
+        """Verify update_member rejects invalid names, emails, and phone formats."""
+        self.service.register_member("Ada Byron", "ada@example.com", "111")
+        # Name with numbers
+        with self.assertRaises(ValueError):
+            self.service.update_member(1, "Ada 123", "ada@example.com")
+        # Invalid email
+        with self.assertRaises(ValueError):
+            self.service.update_member(1, "Ada Byron", "invalid-email")
+        # Invalid phone
+        with self.assertRaises(ValueError):
+            self.service.update_member(1, "Ada Byron", "ada@example.com", "bad-phone-number")
 
     def test_get_member(self):
         """Verify get_member retrieves existing member and returns None for missing."""
